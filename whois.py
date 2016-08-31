@@ -1,17 +1,18 @@
+#!/usr/bin/env python3
 import socket
 import sys
-import re
 
 def get_tld_server(tld="com"):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket()
     sock.connect(("whois.iana.org", 43))
     sock.send("{}\n".format(tld).encode("utf-8"))
     for line in sock.makefile():
-        tld_match = re.match("^(.*?): {1,}(.*?)$", line)
-        if tld_match:
-            if tld_match.group(1) == "whois":
-                return tld_match.group(2)
-        #print(repr(line))
+        parts = line.split(":", 2)
+        if len(parts) > 1:
+            header_name = parts[0].strip()
+            header_value = parts[1].strip()
+            if header_name.lower() == "whois":
+                return header_value
 
 def get_whois_data(domain, server=None):
     if not server:
@@ -20,14 +21,16 @@ def get_whois_data(domain, server=None):
 
     nextserver = None
 
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock = socket.socket()
     sock.connect((server, 43))
     sock.send("{}\n".format(domain).encode("utf-8"))
     for line in sock.makefile():
-        parts = re.match("^(.*?): {1,}(.*?)$", line.strip())
-        if parts:
-            if parts.group(1).lower() == "whois server":
-                nextserver = parts.group(2)
+        parts = line.split(":", 2)
+        if len(parts) > 1:
+            header_name = parts[0].strip()
+            header_value = parts[1].strip()
+            if header_name.lower() == "whois server":
+                nextserver = header_value
         yield line.replace("\n", "")
     
     if nextserver:
